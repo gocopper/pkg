@@ -1,6 +1,7 @@
 package csql_test
 
 import (
+	"path"
 	"testing"
 
 	"github.com/gocopper/copper"
@@ -16,10 +17,13 @@ func TestNewDBConnection(t *testing.T) {
 
 	logger := clogger.New()
 	lc := copper.NewLifecycle(logger)
-	config, err := cconfig.New(cconfigtest.SetupDirWithConfigs(t, `
+
+	configDir := cconfigtest.SetupDirWithConfigs(t, map[string]string{"test.toml": `
 [csql]
 dsn = ":memory:"
-`, ""), ".", "test")
+`})
+
+	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")))
 	assert.NoError(t, err)
 
 	db, err := csql.NewDBConnection(lc, config, logger)

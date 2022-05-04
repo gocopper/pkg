@@ -12,7 +12,7 @@ import (
 )
 
 // NewDBConnection creates and returns a new database connection. The connection is closed when the app exits.
-func NewDBConnection(lc *copper.Lifecycle, appConfig cconfig.Config, logger clogger.Logger) (*gorm.DB, error) {
+func NewDBConnection(lc *copper.Lifecycle, appConfig cconfig.Loader, logger clogger.Logger) (*gorm.DB, error) {
 	var config struct {
 		DSN string
 	}

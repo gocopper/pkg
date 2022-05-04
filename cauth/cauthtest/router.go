@@ -6,9 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"strings"
 	"testing"
 
+	"github.com/gocopper/copper/cconfig"
 	"github.com/gocopper/copper/cconfig/cconfigtest"
 
 	"github.com/gocopper/pkg/cmailer"
@@ -29,8 +31,10 @@ import (
 func NewHandler(t *testing.T) http.Handler {
 	t.Helper()
 
-	logger := clogger.New()
-	rw := chttptest.NewReaderWriter(t)
+	var (
+		logger = clogger.New()
+		rw     = chttptest.NewReaderWriter(t)
+	)
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{ // nolint: exhaustivestruct
 		Logger: gormLogger.Default.LogMode(gormLogger.Silent),
@@ -40,7 +44,12 @@ func NewHandler(t *testing.T) http.Handler {
 	err = cauth.NewMigration(db).Run()
 	assert.NoError(t, err)
 
-	svc, err := cauth.NewSvc(cauth.NewRepo(db), cmailer.NewLogMailer(logger), cconfigtest.NewEmptyConfig(t))
+	configDir := cconfigtest.SetupDirWithConfigs(t, map[string]string{"test.toml": ""})
+
+	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")))
+	assert.NoError(t, err)
+
+	svc, err := cauth.NewSvc(cauth.NewRepo(db), cmailer.NewLogMailer(logger), config)
 	assert.NoError(t, err)
 
 	setSessionMW := cauth.NewSetSessionMiddleware(svc, rw, logger)
@@ -56,6 +65,7 @@ func NewHandler(t *testing.T) http.Handler {
 	handler := chttp.NewHandler(chttp.NewHandlerParams{
 		Routers:           []chttp.Router{router},
 		GlobalMiddlewares: []chttp.Middleware{setSessionMW},
+		Logger:            logger,
 	})
 
 	return handler

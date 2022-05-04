@@ -21,7 +21,7 @@ type AWSConfig struct {
 }
 
 // NewAWSMailer creates an implementation of Mailer that uses AWS
-func NewAWSMailer(appConfig cconfig.Config) (Mailer, error) {
+func NewAWSMailer(appConfig cconfig.Loader) (Mailer, error) {
 	var config AWSConfig
 
 	err := appConfig.Load("aws", &config)

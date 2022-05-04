@@ -1,3 +1,4 @@
+//go:build csql_sqlite
 // +build csql_sqlite
 
 package csql

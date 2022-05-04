@@ -22,7 +22,7 @@ import (
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 // NewSvc instantiates and returns a new Svc.
-func NewSvc(repo *Repo, mailer cmailer.Mailer, appConfig cconfig.Config) (*Svc, error) {
+func NewSvc(repo *Repo, mailer cmailer.Mailer, appConfig cconfig.Loader) (*Svc, error) {
 	var config Config
 
 	err := appConfig.Load("cauth", &config)
