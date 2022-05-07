@@ -3,16 +3,16 @@ package csql
 import (
 	"context"
 
-	"github.com/gocopper/copper"
 	"github.com/gocopper/copper/cconfig"
 	"github.com/gocopper/copper/cerrors"
+	"github.com/gocopper/copper/clifecycle"
 	"github.com/gocopper/copper/clogger"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 )
 
 // NewDBConnection creates and returns a new database connection. The connection is closed when the app exits.
-func NewDBConnection(lc *copper.Lifecycle, appConfig cconfig.Loader, logger clogger.Logger) (*gorm.DB, error) {
+func NewDBConnection(lc *clifecycle.Lifecycle, appConfig cconfig.Loader, logger clogger.Logger) (*gorm.DB, error) {
 	var config struct {
 		DSN string
 	}
