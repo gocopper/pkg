@@ -1,12 +1,9 @@
 package csql_test
 
 import (
-	"path"
 	"testing"
 
-	"github.com/gocopper/copper"
-	"github.com/gocopper/copper/cconfig"
-	"github.com/gocopper/copper/cconfig/cconfigtest"
+	"github.com/gocopper/copper/clifecycle"
 	"github.com/gocopper/copper/clogger"
 	"github.com/gocopper/pkg/csql"
 	"github.com/stretchr/testify/assert"
@@ -15,18 +12,15 @@ import (
 func TestNewDBConnection(t *testing.T) {
 	t.Parallel()
 
-	logger := clogger.New()
-	lc := copper.NewLifecycle(logger)
+	var (
+		logger = clogger.New()
+		lc     = clifecycle.New()
+	)
 
-	configDir := cconfigtest.SetupDirWithConfigs(t, map[string]string{"test.toml": `
-[csql]
-dsn = ":memory:"
-`})
-
-	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")))
-	assert.NoError(t, err)
-
-	db, err := csql.NewDBConnection(lc, config, logger)
+	db, err := csql.NewDBConnection(lc, csql.Config{
+		Dialect: "sqlite",
+		DSN:     ":memory:",
+	}, logger)
 	assert.NoError(t, err)
 
 	sqlDB, err := db.DB()
@@ -34,7 +28,7 @@ dsn = ":memory:"
 
 	assert.NoError(t, sqlDB.Ping())
 
-	lc.Stop()
+	lc.Stop(logger)
 
 	assert.Error(t, sqlDB.Ping())
 }

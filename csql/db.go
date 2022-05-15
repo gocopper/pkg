@@ -3,34 +3,33 @@ package csql
 import (
 	"context"
 
-	"github.com/gocopper/copper/cconfig"
 	"github.com/gocopper/copper/cerrors"
 	"github.com/gocopper/copper/clifecycle"
 	"github.com/gocopper/copper/clogger"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 )
 
 // NewDBConnection creates and returns a new database connection. The connection is closed when the app exits.
-func NewDBConnection(lc *clifecycle.Lifecycle, appConfig cconfig.Loader, logger clogger.Logger) (*gorm.DB, error) {
-	var config struct {
-		DSN string
-	}
+func NewDBConnection(lc *clifecycle.Lifecycle, config Config, logger clogger.Logger) (*gorm.DB, error) {
+	var dialect gorm.Dialector
 
-	err := appConfig.Load("csql", &config)
-	if err != nil {
-		return nil, cerrors.New(err, "failed to load sql config", nil)
-	}
-
-	dialect := newDialect(config.DSN)
-
-	if config.DSN == "" {
-		return nil, cerrors.New(err, "csql.dsn is not set in the config", map[string]interface{}{
-			"dialect": dialect.Name(),
+	switch config.Dialect {
+	case "sqlite":
+		dialect = sqlite.Open(config.DSN)
+	case "postgres":
+		dialect = postgres.Open(config.DSN)
+	default:
+		return nil, cerrors.New(nil, "unknown dialect", map[string]interface{}{
+			"dialect": config.Dialect,
 		})
 	}
 
-	logger.Info("Opening a database connection..")
+	logger.WithTags(map[string]interface{}{
+		"dialect": config.Dialect,
+	}).Info("Opening a database connection..")
 
 	db, err := gorm.Open(dialect, &gorm.Config{
 		Logger: gormLogger.Default.LogMode(gormLogger.Silent),
