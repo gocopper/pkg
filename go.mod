@@ -4,12 +4,12 @@ go 1.16
 
 require (
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/gocopper/copper v0.4.0
+	github.com/gocopper/copper v0.6.1
 	github.com/google/uuid v1.3.0
 	github.com/google/wire v0.5.0
+	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	gorm.io/driver/postgres v1.1.0
-	gorm.io/driver/sqlite v1.1.4
-	gorm.io/gorm v1.21.14
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	gorm.io/driver/sqlite v1.3.2
+	gorm.io/gorm v1.23.5
 )
