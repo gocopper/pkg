@@ -23,6 +23,13 @@ type Assets struct {
 	config    Config
 }
 
+func (a *Assets) HTMLRenderFunc() chttp.HTMLRenderFunc {
+	return chttp.HTMLRenderFunc{
+		Name: "vite-assets",
+		Func: a.Assets,
+	}
+}
+
 func (a *Assets) Assets(req *http.Request) interface{} {
 	if a.config.DevMode {
 		return a.dev(req)
