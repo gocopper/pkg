@@ -25,7 +25,7 @@ type Assets struct {
 
 func (a *Assets) HTMLRenderFunc() chttp.HTMLRenderFunc {
 	return chttp.HTMLRenderFunc{
-		Name: "vite-assets",
+		Name: "viteAssets",
 		Func: a.Assets,
 	}
 }
