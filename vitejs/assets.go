@@ -73,8 +73,13 @@ func (a *Assets) prod() interface{} {
 
 func (a *Assets) dev(req *http.Request) interface{} {
 	return func() (template.HTML, error) {
-		const reactRefreshURL = "http://localhost:3000/@react-refresh"
-		var out strings.Builder
+		var (
+			reactRefreshURL = a.config.hostURL.ResolveReference(urlMustParse("/@react-refresh")).String()
+			viteClientURL   = a.config.hostURL.ResolveReference(urlMustParse("/@vite/client")).String()
+			mainJSURL       = a.config.hostURL.ResolveReference(urlMustParse("/src/main.js")).String()
+
+			out strings.Builder
+		)
 
 		reactReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, reactRefreshURL, nil)
 		if err != nil {
@@ -88,14 +93,14 @@ func (a *Assets) dev(req *http.Request) interface{} {
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == http.StatusOK {
-			out.WriteString(`
+			out.WriteString(fmt.Sprintf(`
 <script type="module">
-  import RefreshRuntime from 'http://localhost:3000/@react-refresh'
+  import RefreshRuntime from '%s'
   RefreshRuntime.injectIntoGlobalHook(window)
   window.$RefreshReg$ = () => {}
   window.$RefreshSig$ = () => (type) => type
   window.__vite_plugin_react_preamble_installed__ = true
-</script>`)
+</script>`, reactRefreshURL))
 		}
 
 		// note: in dev mode only, the css is not part of the initial page load. since it is loaded async, there is
@@ -126,9 +131,9 @@ func (a *Assets) dev(req *http.Request) interface{} {
 </script>
 `)
 
-		out.WriteString(`
-<script type="module" src="http://localhost:3000/@vite/client"></script>
-<script type="module" src="http://localhost:3000/src/main.js"></script>`)
+		out.WriteString(fmt.Sprintf(`
+<script type="module" src="%s"></script>
+<script type="module" src="%s"></script>`, viteClientURL, mainJSURL))
 
 		// nolint:gosec
 		return template.HTML(out.String()), nil
