@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/gocopper/copper/cconfig"
+	"github.com/gocopper/copper/crandom"
 
 	"github.com/gocopper/pkg/cmailer"
 
 	"github.com/gocopper/copper/cerrors"
-	"github.com/gocopper/pkg/crandom"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"

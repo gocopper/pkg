@@ -2,7 +2,10 @@ module github.com/gocopper/pkg
 
 go 1.16
 
+replace github.com/gocopper/copper => ../copper
+
 require (
+	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/aws/aws-sdk-go v1.40.32
 	github.com/gocopper/copper v0.6.1
 	github.com/google/uuid v1.3.0

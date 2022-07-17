@@ -1,0 +1,47 @@
+<script src="/static/livewire.js"></script>
+<script>
+if (window.livewire) {
+  console.warn('Livewire: It looks like Livewire\'s @livewireScripts JavaScript assets have already been loaded. Make sure you aren\'t loading them twice.')
+}
+
+window.livewire = new Livewire();
+window.livewire.devTools(true);
+window.Livewire = window.livewire;
+window.livewire_app_url = '';
+window.livewire_token = '6o9DRHwb6rqM1rjW65P4vkuyFUPAFPRMeqJQa6ZE';
+
+
+if (window.Alpine) {
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function() {
+      console.warn("Livewire: It looks like AlpineJS has already been loaded. Make sure Livewire\'s scripts are loaded before Alpine.\\n\\n Reference docs for more info: http://laravel-livewire.com/docs/alpine-js")
+    })
+  });
+}
+
+
+window.deferLoadingAlpine = function (callback) {
+  window.addEventListener('livewire:load', function () {
+    callback();
+  });
+};
+
+let started = false;
+
+window.addEventListener('alpine:initializing', function () {
+  if (! started) {
+    window.livewire.start();
+
+    started = true;
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (! started) {
+    window.livewire.start();
+
+    started = true;
+  }
+});
+</script>
