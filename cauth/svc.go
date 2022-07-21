@@ -15,14 +15,13 @@ import (
 	"github.com/gocopper/pkg/crandom"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 // ErrInvalidCredentials is returned when a credential check fails. This usually happens during the login process.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 // NewSvc instantiates and returns a new Svc.
-func NewSvc(repo *Repo, mailer cmailer.Mailer, appConfig cconfig.Loader) (*Svc, error) {
+func NewSvc(queries *Queries, mailer cmailer.Mailer, appConfig cconfig.Loader) (*Svc, error) {
 	var config Config
 
 	err := appConfig.Load("cauth", &config)
@@ -31,17 +30,17 @@ func NewSvc(repo *Repo, mailer cmailer.Mailer, appConfig cconfig.Loader) (*Svc, 
 	}
 
 	return &Svc{
-		repo:   repo,
-		mailer: mailer,
-		config: &config,
+		queries: queries,
+		mailer:  mailer,
+		config:  &config,
 	}, nil
 }
 
 // Svc provides methods to manage users and sessions.
 type Svc struct {
-	repo   *Repo
-	mailer cmailer.Mailer
-	config *Config
+	queries *Queries
+	mailer  cmailer.Mailer
+	config  *Config
 }
 
 // SessionResult is usually used when a new session is created. It holds the plain session token that can be used
@@ -88,27 +87,32 @@ func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionRes
 		return nil, cerrors.New(err, "failed to hash verification code", nil)
 	}
 
-	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	user, err := s.queries.GetUserByEmail(ctx, email)
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, cerrors.New(err, "failed to get user by email", map[string]interface{}{
 			"email": email,
 		})
-	}
-
-	if user == nil {
+	} else if errors.Is(err, ErrNotFound) {
 		user = &User{
 			UUID:      uuid.New().String(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 			Email:     &email,
+			Password:  hashedVerificationCode,
 		}
-	}
 
-	user.Password = hashedVerificationCode
+		err = s.queries.InsertUser(ctx, user)
+		if err != nil {
+			return nil, cerrors.New(err, "failed to insert user", nil)
+		}
+	} else if err == nil {
+		user.UpdatedAt = time.Now()
+		user.Password = hashedVerificationCode
 
-	err = s.repo.SaveUser(ctx, user)
-	if err != nil {
-		return nil, cerrors.New(err, "failed to save user", nil)
+		err = s.queries.UpdateUser(ctx, user)
+		if err != nil {
+			return nil, cerrors.New(err, "failed to insert user", nil)
+		}
 	}
 
 	emailBody := fmt.Sprintf("Your verification code is %s", verificationCode)
@@ -144,7 +148,7 @@ func (s *Svc) signupWithUsernamePassword(ctx context.Context, username, password
 		Password:  hashedPassword,
 	}
 
-	err = s.repo.SaveUser(ctx, user)
+	err = s.queries.InsertUser(ctx, user)
 	if err != nil {
 		return nil, cerrors.New(err, "failed to save user", nil)
 	}
@@ -178,8 +182,8 @@ func (s *Svc) Login(ctx context.Context, p LoginParams) (*SessionResult, error) 
 }
 
 func (s *Svc) loginWithEmailPassword(ctx context.Context, email, password string) (*SessionResult, error) {
-	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+	user, err := s.queries.GetUserByEmail(ctx, email)
+	if err != nil && errors.Is(err, ErrNotFound) {
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, cerrors.New(err, "failed to get user by email", map[string]interface{}{
@@ -207,8 +211,8 @@ func (s *Svc) loginWithEmailPassword(ctx context.Context, email, password string
 }
 
 func (s *Svc) loginWithUsernamePassword(ctx context.Context, username, password string) (*SessionResult, error) {
-	user, err := s.repo.GetUserByUsername(ctx, username)
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+	user, err := s.queries.GetUserByUsername(ctx, username)
+	if err != nil && errors.Is(err, ErrNotFound) {
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, cerrors.New(err, "failed to get user by username", map[string]interface{}{
@@ -253,7 +257,7 @@ func (s *Svc) createSession(ctx context.Context, userUUID string) (*Session, str
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 	}
 
-	err = s.repo.SaveSession(ctx, session)
+	err = s.queries.InsertSession(ctx, session)
 	if err != nil {
 		return nil, "", cerrors.New(err, "failed to create a new session", nil)
 	}
@@ -264,7 +268,7 @@ func (s *Svc) createSession(ctx context.Context, userUUID string) (*Session, str
 // ValidateSession validates whether the provided plainToken is valid for the session identified by the given
 // sessionUUID.
 func (s *Svc) ValidateSession(ctx context.Context, sessionUUID, plainToken string) (bool, *Session, error) {
-	session, err := s.repo.GetSession(ctx, sessionUUID)
+	session, err := s.queries.GetSession(ctx, sessionUUID)
 	if err != nil && errors.Is(err, ErrNotFound) {
 		return false, nil, nil
 	} else if err != nil {
@@ -283,7 +287,7 @@ func (s *Svc) ValidateSession(ctx context.Context, sessionUUID, plainToken strin
 
 // Logout invalidates the session identified by the given sessionUUID.
 func (s *Svc) Logout(ctx context.Context, sessionUUID string) error {
-	session, err := s.repo.GetSession(ctx, sessionUUID)
+	session, err := s.queries.GetSession(ctx, sessionUUID)
 	if err != nil {
 		return cerrors.New(err, "failed to get session", map[string]interface{}{
 			"sessionUUID": sessionUUID,
@@ -292,7 +296,7 @@ func (s *Svc) Logout(ctx context.Context, sessionUUID string) error {
 
 	session.ExpiresAt = time.Now()
 
-	err = s.repo.SaveSession(ctx, session)
+	err = s.queries.UpdateSession(ctx, session)
 	if err != nil {
 		return cerrors.New(err, "failed to save session", map[string]interface{}{
 			"sessionUUID": sessionUUID,

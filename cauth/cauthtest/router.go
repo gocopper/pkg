@@ -2,6 +2,7 @@ package cauthtest
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gocopper/copper/cconfig"
 	"github.com/gocopper/copper/cconfig/cconfigtest"
+	"github.com/gocopper/copper/csql"
 
 	"github.com/gocopper/pkg/cmailer"
 
@@ -21,39 +23,58 @@ import (
 
 	"github.com/gocopper/copper/clogger"
 	"github.com/gocopper/pkg/cauth"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
 )
 
 // NewHandler instantiates and returns a http.Handler with auth router and middlewares suited for testing.
 func NewHandler(t *testing.T) http.Handler {
 	t.Helper()
 
+	const (
+		dbDialect = "sqlite3"
+		dbDSN     = ":memory:"
+	)
+
 	var (
 		logger = clogger.New()
 		rw     = chttptest.NewReaderWriter(t)
 	)
 
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{ // nolint: exhaustivestruct
-		Logger: gormLogger.Default.LogMode(gormLogger.Silent),
-	})
+	db, err := sql.Open(dbDialect, dbDSN)
 	assert.NoError(t, err)
 
-	err = cauth.NewMigration(db).Run()
+	csqlConfig := csql.Config{
+		Dialect: dbDialect,
+		DSN:     dbDSN,
+		Migrations: csql.ConfigMigrations{
+			Direction: "up",
+		},
+	}
+
+	err = csql.NewMigrator(csql.NewMigratorParams{
+		DB:         db,
+		Migrations: csql.Migrations(cauth.Migrations),
+		Config:     csqlConfig,
+		Logger:     logger,
+	}).Run()
 	assert.NoError(t, err)
 
 	configDir := cconfigtest.SetupDirWithConfigs(t, map[string]string{"test.toml": ""})
 
-	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")))
+	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")), "")
 	assert.NoError(t, err)
 
-	svc, err := cauth.NewSvc(cauth.NewRepo(db), cmailer.NewLogMailer(logger), config)
+	svc, err := cauth.NewSvc(
+		cauth.NewQueries(csql.NewQuerier(db, csqlConfig)),
+		cmailer.NewLogMailer(logger),
+		config,
+	)
 	assert.NoError(t, err)
 
 	setSessionMW := cauth.NewSetSessionMiddleware(svc, rw, logger)
 	verifySessionMW := cauth.NewVerifySessionMiddleware(svc, rw, logger)
+	dbTxMW := csql.NewTxMiddleware(db, csqlConfig, logger)
 
 	router := cauth.NewRouter(cauth.NewRouterParams{
 		Auth:      svc,
@@ -64,7 +85,7 @@ func NewHandler(t *testing.T) http.Handler {
 
 	handler := chttp.NewHandler(chttp.NewHandlerParams{
 		Routers:           []chttp.Router{router},
-		GlobalMiddlewares: []chttp.Middleware{setSessionMW},
+		GlobalMiddlewares: []chttp.Middleware{dbTxMW, setSessionMW},
 		Logger:            logger,
 	})
 
