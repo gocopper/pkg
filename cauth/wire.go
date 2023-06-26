@@ -5,10 +5,9 @@ import (
 )
 
 // WireModule can be used as part of google/wire setup.
-var WireModule = wire.NewSet( // nolint:gochecknoglobals
+var WireModule = wire.NewSet( //nolint:gochecknoglobals
 	NewSvc,
 	NewQueries,
-	NewSetSessionMiddleware,
 	NewVerifySessionMiddleware,
 
 	wire.Struct(new(NewRouterParams), "*"),
