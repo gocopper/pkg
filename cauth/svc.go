@@ -49,6 +49,7 @@ type SessionResult struct {
 	User              *User    `json:"user"`
 	Session           *Session `json:"session"`
 	PlainSessionToken string   `json:"plain_session_token"`
+	NewUser           bool     `json:"new_user"`
 }
 
 // SignupParams hold the params needed to signup a new user.
@@ -80,7 +81,10 @@ func (s *Svc) Signup(ctx context.Context, p SignupParams) (*SessionResult, error
 }
 
 func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionResult, error) {
-	verificationCode := strconv.Itoa(int(crandom.GenerateRandomNumericalCode(s.config.VerificationCodeLen)))
+	var (
+		newUser          = false
+		verificationCode = strconv.Itoa(int(crandom.GenerateRandomNumericalCode(s.config.VerificationCodeLen)))
+	)
 
 	hashedVerificationCode, err := bcrypt.GenerateFromPassword([]byte(verificationCode), bcrypt.DefaultCost)
 	if err != nil {
@@ -93,6 +97,7 @@ func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionRes
 			"email": email,
 		})
 	} else if errors.Is(err, ErrNotFound) {
+		newUser = true
 		user = &User{
 			UUID:      uuid.New().String(),
 			CreatedAt: time.Now(),
@@ -130,7 +135,8 @@ func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionRes
 	}
 
 	return &SessionResult{
-		User: user,
+		User:    user,
+		NewUser: newUser,
 	}, nil
 }
 
@@ -164,6 +170,7 @@ func (s *Svc) signupWithUsernamePassword(ctx context.Context, username, password
 		User:              user,
 		Session:           session,
 		PlainSessionToken: plainSessionToken,
+		NewUser:           true,
 	}, nil
 }
 
