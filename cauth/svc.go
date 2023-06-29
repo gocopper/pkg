@@ -292,6 +292,11 @@ func (s *Svc) ValidateSession(ctx context.Context, sessionUUID, plainToken strin
 	return true, session, nil
 }
 
+// GetUserByUUID returns the user identified by the given userUUID.
+func (s *Svc) GetUserByUUID(ctx context.Context, userUUID string) (*User, error) {
+	return s.queries.GetUserByUUID(ctx, userUUID)
+}
+
 // Logout invalidates the session identified by the given sessionUUID.
 func (s *Svc) Logout(ctx context.Context, sessionUUID string) error {
 	session, err := s.queries.GetSession(ctx, sessionUUID)

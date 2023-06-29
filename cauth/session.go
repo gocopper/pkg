@@ -11,7 +11,10 @@ import (
 
 type ctxKey string
 
-const ctxKeySession = ctxKey("cauth/session")
+const (
+	ctxKeySession = ctxKey("cauth/session")
+	ctxKeyUser    = ctxKey("cauth/user")
+)
 
 // NewVerifySessionMiddleware instantiates and creates a new VerifySessionMiddleware
 func NewVerifySessionMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogger.Logger) *VerifySessionMiddleware {
@@ -27,8 +30,9 @@ func NewVerifySessionMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogge
 //     and the password is the session token
 //  2. SessionUUID and SessionToken cookies
 //
-// If the session is present, it is validated, saved in the request ctx, and the next handler is
-// called. If the session is invalid, an unauthorized response is sent back.
+// If the session is present, it is validated, saved in the request ctx along with the user,
+// and the next handler is called. If the session is invalid, an unauthorized response is sent
+// back.
 // To ensure verified session, use in conjunction with VerifySessionMiddleware.
 type VerifySessionMiddleware struct {
 	auth   *Svc
@@ -91,7 +95,20 @@ func (mw *VerifySessionMiddleware) Handle(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKeySession, session)))
+		user, err := mw.auth.GetUserByUUID(r.Context(), session.UserUUID)
+		if err != nil {
+			mw.logger.WithTags(map[string]interface{}{
+				"userUUID": session.UserUUID,
+			}).Error("Failed to get user by uuid", err)
+			w.WriteHeader(http.StatusInternalServerError)
+
+			return
+		}
+
+		ctxWithUser := context.WithValue(r.Context(), ctxKeyUser, user)
+		ctxWithUserAndSession := context.WithValue(ctxWithUser, ctxKeySession, session)
+
+		next.ServeHTTP(w, r.WithContext(ctxWithUserAndSession))
 	})
 }
 
@@ -105,6 +122,18 @@ func GetCurrentSession(ctx context.Context) *Session {
 	}
 
 	return session
+}
+
+// GetCurrentUser returns the user in the HTTP request context. It should only be used in HTTP request
+// handlers that have the VerifySessionMiddleware on them. If a user is not found, this method will panic. To avoid
+// panics, verify that a user exists either with the VerifySessionMiddleware or the HasVerifiedSession function.
+func GetCurrentUser(ctx context.Context) *User {
+	user, ok := ctx.Value(ctxKeyUser).(*User)
+	if !ok || user == nil {
+		panic("user not found in context")
+	}
+
+	return user
 }
 
 // HasVerifiedSession checks if the context has a valid session

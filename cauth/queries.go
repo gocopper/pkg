@@ -21,6 +21,20 @@ type Queries struct {
 	querier csql.Querier
 }
 
+// GetUserByUUID queries the users table for a user with the given uuid.
+func (q *Queries) GetUserByUUID(ctx context.Context, uuid string) (*User, error) {
+	const query = `select * from cauth_users where uuid=?`
+
+	var user User
+
+	err := q.querier.Get(ctx, &user, query, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // GetUserByUsername queries the users table for a user with the given username.
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	const query = `select * from cauth_users where username=?`
