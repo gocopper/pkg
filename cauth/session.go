@@ -70,7 +70,7 @@ func (mw *VerifySessionMiddleware) Handle(next http.Handler) http.Handler {
 		}
 
 		basicAuthUsername, basicAuthPass, ok := r.BasicAuth()
-		if ok && sessionUUID != "" && plainToken != "" {
+		if ok && basicAuthUsername != "" && basicAuthPass != "" {
 			sessionUUID = basicAuthUsername
 			plainToken = basicAuthPass
 		}
