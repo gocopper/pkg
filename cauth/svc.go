@@ -3,8 +3,9 @@ package cauth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
+	"strings"
+	"text/template"
 	"time"
 
 	"github.com/gocopper/pkg/cmailer"
@@ -136,13 +137,27 @@ func (s *Svc) signupWithEmail(ctx context.Context, email string, password *strin
 		}
 	}
 
-	emailBody := fmt.Sprintf("Your verification code is %s", verificationCode)
+	var emailBodySb strings.Builder
+
+	tmpl, err := template.New("email_verification_code").Parse(s.config.VerificationEmailBodyHTML)
+	if err != nil {
+		return nil, cerrors.New(err, "failed to parse verification code email template", nil)
+	}
+
+	err = tmpl.Execute(&emailBodySb, map[string]string{
+		"VerificationCode": verificationCode,
+	})
+	if err != nil {
+		return nil, cerrors.New(err, "failed to execute verification code email template", nil)
+	}
+
+	emailBody := emailBodySb.String()
 
 	err = s.mailer.Send(ctx, cmailer.SendParams{
-		From:      s.config.VerificationEmailFrom,
-		To:        []string{email},
-		Subject:   s.config.VerificationEmailSubject,
-		PlainBody: &emailBody,
+		From:     s.config.VerificationEmailFrom,
+		To:       []string{email},
+		Subject:  s.config.VerificationEmailSubject,
+		HTMLBody: &emailBody,
 	})
 	if err != nil {
 		return nil, cerrors.New(err, "failed to send verification code email", map[string]interface{}{
