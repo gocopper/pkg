@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gocopper/copper/cerrors"
 	"github.com/gocopper/copper/chttp"
 	"github.com/gocopper/copper/clogger"
 )
@@ -62,13 +63,10 @@ func (mw *VerifySessionMiddleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, user, err := mw.auth.getSessionAndUserFromHTTPRequest(r.Context(), r)
 		if err != nil && errors.Is(err, ErrInvalidCredentials) {
-			w.WriteHeader(http.StatusUnauthorized)
-
+			mw.rw.Unauthorized(w, r)
 			return
 		} else if err != nil {
-			mw.logger.Error("Failed to get session and user from http request", err)
-			w.WriteHeader(http.StatusInternalServerError)
-
+			mw.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to get session and user from http request", nil))
 			return
 		}
 
@@ -87,9 +85,7 @@ func (mw *SetSessionIfAnyMiddleware) Handle(next http.Handler) http.Handler {
 
 			return
 		} else if err != nil {
-			mw.logger.Error("Failed to get session and user from http request", err)
-			w.WriteHeader(http.StatusInternalServerError)
-
+			mw.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to get session and user from http request", nil))
 			return
 		}
 

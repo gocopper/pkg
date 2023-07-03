@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gocopper/copper/cerrors"
 	"github.com/gocopper/copper/chttp"
 	"github.com/gocopper/copper/clogger"
 )
@@ -97,13 +98,12 @@ func (ro *Router) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	_, err := ro.svc.VerifyEmail(r.Context(), params)
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {
-		w.WriteHeader(http.StatusUnauthorized)
-
+		ro.rw.Unauthorized(w, r)
 		return
 	} else if err != nil {
-		ro.logger.Error("Failed to verify email", err)
-		w.WriteHeader(http.StatusInternalServerError)
-
+		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to verify email", map[string]interface{}{
+			"email": params.Email,
+		}))
 		return
 	}
 
@@ -120,13 +120,12 @@ func (ro *Router) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	sessionResult, err := ro.svc.Login(r.Context(), params)
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {
-		w.WriteHeader(http.StatusUnauthorized)
-
+		ro.rw.Unauthorized(w, r)
 		return
 	} else if err != nil {
-		ro.logger.Error("Failed to login", err)
-		w.WriteHeader(http.StatusInternalServerError)
-
+		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to login", map[string]interface{}{
+			"email": params.Email,
+		}))
 		return
 	}
 
@@ -144,9 +143,9 @@ func (ro *Router) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	err := ro.svc.Logout(ctx, session.UUID)
 	if err != nil {
-		ro.logger.Error("Failed to logout", err)
-		w.WriteHeader(http.StatusInternalServerError)
-
+		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to logout", map[string]interface{}{
+			"session": session.UUID,
+		}))
 		return
 	}
 }
