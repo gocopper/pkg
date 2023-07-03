@@ -95,9 +95,9 @@ func (q *Queries) UpdateUser(ctx context.Context, user *User) error {
 		user.UpdatedAt,
 		user.Password,
 		user.PasswordResetToken,
-		user.UUID,
 		user.EmailVerified,
 		user.EmailVerificationCode,
+		user.UUID,
 	)
 	return err
 }
