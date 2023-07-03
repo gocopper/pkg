@@ -16,6 +16,9 @@ type User struct {
 
 	Password           []byte `db:"password" json:"-"`
 	PasswordResetToken []byte `db:"password_reset_token" json:"-"`
+
+	EmailVerified         bool   `db:"email_verified" json:"email_verified"`
+	EmailVerificationCode []byte `db:"email_verification_code" json:"-"`
 }
 
 // Session represents a single logged-in session that a user is able create after providing valid

@@ -9,6 +9,7 @@ var WireModule = wire.NewSet( //nolint:gochecknoglobals
 	NewSvc,
 	NewQueries,
 	NewVerifySessionMiddleware,
+	LoadConfig,
 
 	wire.Struct(new(NewRouterParams), "*"),
 	NewRouter,

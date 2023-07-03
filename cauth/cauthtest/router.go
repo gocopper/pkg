@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -62,7 +62,10 @@ func NewHandler(t *testing.T) http.Handler {
 
 	configDir := cconfigtest.SetupDirWithConfigs(t, map[string]string{"test.toml": ""})
 
-	config, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")), "")
+	configLoader, err := cconfig.New(cconfig.Path(path.Join(configDir, "test.toml")), "")
+	assert.NoError(t, err)
+
+	config, err := cauth.LoadConfig(configLoader)
 	assert.NoError(t, err)
 
 	svc, err := cauth.NewSvc(
@@ -72,7 +75,6 @@ func NewHandler(t *testing.T) http.Handler {
 	)
 	assert.NoError(t, err)
 
-	setSessionMW := cauth.NewSetSessionMiddleware(svc, rw, logger)
 	verifySessionMW := cauth.NewVerifySessionMiddleware(svc, rw, logger)
 	dbTxMW := csql.NewTxMiddleware(db, csqlConfig, logger)
 
@@ -85,7 +87,7 @@ func NewHandler(t *testing.T) http.Handler {
 
 	handler := chttp.NewHandler(chttp.NewHandlerParams{
 		Routers:           []chttp.Router{router},
-		GlobalMiddlewares: []chttp.Middleware{dbTxMW, setSessionMW},
+		GlobalMiddlewares: []chttp.Middleware{dbTxMW},
 		Logger:            logger,
 	})
 
@@ -116,7 +118,7 @@ func CreateNewUserSession(t *testing.T, server *httptest.Server) *cauth.SessionR
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	respBodyJ, err := ioutil.ReadAll(resp.Body)
+	respBodyJ, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 
 	err = json.Unmarshal(respBodyJ, &session)

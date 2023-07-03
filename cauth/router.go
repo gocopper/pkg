@@ -43,6 +43,11 @@ func (ro *Router) Routes() []chttp.Route {
 			Handler: ro.HandleSignup,
 		},
 		{
+			Path:    "/api/auth/verify-email",
+			Methods: []string{http.MethodPost},
+			Handler: ro.HandleVerifyEmail,
+		},
+		{
 			Path:    "/api/auth/login",
 			Methods: []string{http.MethodPost},
 			Handler: ro.HandleLogin,
@@ -65,7 +70,12 @@ func (ro *Router) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionResult, err := ro.svc.Signup(r.Context(), params)
-	if err != nil {
+	if err != nil && errors.Is(err, ErrUserAlreadyExists) {
+		ro.rw.WriteJSON(w, chttp.WriteJSONParams{
+			StatusCode: http.StatusBadRequest,
+			Data:       map[string]string{"error": "user already exists"},
+		})
+	} else if err != nil {
 		ro.logger.Error("Failed to signup", err)
 		w.WriteHeader(http.StatusInternalServerError)
 
@@ -75,6 +85,29 @@ func (ro *Router) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	ro.rw.WriteJSON(w, chttp.WriteJSONParams{
 		Data: sessionResult,
 	})
+}
+
+// HandleVerifyEmail handles a user email verification request.
+func (ro *Router) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var params VerifyEmailParams
+
+	if !ro.rw.ReadJSON(w, r, &params) {
+		return
+	}
+
+	_, err := ro.svc.VerifyEmail(r.Context(), params)
+	if err != nil && errors.Is(err, ErrInvalidCredentials) {
+		w.WriteHeader(http.StatusUnauthorized)
+
+		return
+	} else if err != nil {
+		ro.logger.Error("Failed to verify email", err)
+		w.WriteHeader(http.StatusInternalServerError)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // HandleLogin handles a user login request.

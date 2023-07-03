@@ -3,7 +3,7 @@ package cauth_test
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,33 +20,47 @@ func TestRouter_HandleSignup(t *testing.T) {
 	var (
 		sessionResult cauth.SessionResult
 		server        = httptest.NewServer(cauthtest.NewHandler(t))
-	)
 
+		bodyTests = []string{
+			`{
+				"username": "test-username",
+				"password": "test-pass"
+			}`,
+			`{
+				"email": "email-with-pass@test.com",
+				"password": "test-pass"
+			}`,
+			`{
+				"email": "email-otp@test.com"
+			}`,
+		}
+	)
 	defer server.Close()
 
-	reqBody := strings.NewReader(`{
-		"username": "test-user",
-		"password": "test-pass"
-	}`)
+	for i := range bodyTests {
+		t.Run(bodyTests[i], func(t *testing.T) {
+			reqBody := strings.NewReader(bodyTests[i])
 
-	req, err := http.NewRequestWithContext(context.Background(),
-		http.MethodPost,
-		server.URL+"/api/auth/signup",
-		reqBody,
-	)
-	assert.NoError(t, err)
+			req, err := http.NewRequestWithContext(context.Background(),
+				http.MethodPost,
+				server.URL+"/api/auth/signup",
+				reqBody,
+			)
+			assert.NoError(t, err)
 
-	resp, err := http.DefaultClient.Do(req)
-	assert.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
+			resp, err := http.DefaultClient.Do(req)
+			assert.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	respBodyJ, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
+			respBodyJ, err := io.ReadAll(resp.Body)
+			assert.NoError(t, err)
 
-	err = json.Unmarshal(respBodyJ, &sessionResult)
-	assert.NoError(t, err)
+			err = json.Unmarshal(respBodyJ, &sessionResult)
+			assert.NoError(t, err)
+		})
+	}
 }
 
 func TestRouter_HandleLogin_Invalid(t *testing.T) {
@@ -102,7 +116,7 @@ func TestRouter_HandleLogin(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	respBodyJ, err := ioutil.ReadAll(resp.Body)
+	respBodyJ, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 
 	err = json.Unmarshal(respBodyJ, &sessionResult)

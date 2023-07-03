@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gocopper/copper/cconfig"
-
 	"github.com/gocopper/pkg/cmailer"
 
 	"github.com/gocopper/copper/cerrors"
@@ -17,22 +15,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ErrInvalidCredentials is returned when a credential check fails. This usually happens during the login process.
-var ErrInvalidCredentials = errors.New("invalid credentials")
+var (
+	// ErrInvalidCredentials is returned when a credential check fails. This usually happens during the login process.
+	ErrInvalidCredentials = errors.New("invalid credentials")
+
+	// ErrUserAlreadyExists is returned when a user already exists during the signup process.
+	ErrUserAlreadyExists = errors.New("user already exists")
+)
 
 // NewSvc instantiates and returns a new Svc.
-func NewSvc(queries *Queries, mailer cmailer.Mailer, appConfig cconfig.Loader) (*Svc, error) {
-	var config Config
-
-	err := appConfig.Load("cauth", &config)
-	if err != nil {
-		return nil, cerrors.New(err, "failed to load cauth config", nil)
-	}
-
+func NewSvc(queries *Queries, mailer cmailer.Mailer, config Config) (*Svc, error) {
 	return &Svc{
 		queries: queries,
 		mailer:  mailer,
-		config:  &config,
+		config:  config,
 	}, nil
 }
 
@@ -40,7 +36,7 @@ func NewSvc(queries *Queries, mailer cmailer.Mailer, appConfig cconfig.Loader) (
 type Svc struct {
 	queries *Queries
 	mailer  cmailer.Mailer
-	config  *Config
+	config  Config
 }
 
 // SessionResult is usually used when a new session is created. It holds the plain session token that can be used
@@ -61,9 +57,16 @@ type SignupParams struct {
 
 // LoginParams hold the params needed to login a user.
 type LoginParams struct {
-	Email    *string `json:"email"`
-	Username *string `json:"username"`
-	Password *string `json:"password"`
+	Email            *string `json:"email"`
+	Username         *string `json:"username"`
+	Password         *string `json:"password"`
+	VerificationCode *string `json:"verification_code"`
+}
+
+// VerifyEmailParams hold the params needed to verify an email.
+type VerifyEmailParams struct {
+	Email            string `json:"email"`
+	VerificationCode string `json:"verification_code"`
 }
 
 // Signup creates a new user. If contact methods such as email or phone are provided, it will send verification
@@ -74,13 +77,13 @@ func (s *Svc) Signup(ctx context.Context, p SignupParams) (*SessionResult, error
 	}
 
 	if p.Email != nil {
-		return s.signupWithEmailOTP(ctx, *p.Email)
+		return s.signupWithEmail(ctx, *p.Email, p.Password)
 	}
 
 	return nil, errors.New("invalid signup params")
 }
 
-func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionResult, error) {
+func (s *Svc) signupWithEmail(ctx context.Context, email string, password *string) (*SessionResult, error) {
 	var (
 		newUser          = false
 		verificationCode = strconv.Itoa(int(crandom.GenerateRandomNumericalCode(s.config.VerificationCodeLen)))
@@ -96,25 +99,38 @@ func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionRes
 		return nil, cerrors.New(err, "failed to get user by email", map[string]interface{}{
 			"email": email,
 		})
+	} else if err == nil && len(user.Password) > 0 {
+		// User should not be able to signup with an email that already exists
+		return nil, ErrUserAlreadyExists
+	} else if err == nil && len(user.Password) == 0 {
+		user.UpdatedAt = time.Now()
+		user.EmailVerificationCode = hashedVerificationCode
+		user.EmailVerified = false
+
+		err = s.queries.UpdateUser(ctx, user)
+		if err != nil {
+			return nil, cerrors.New(err, "failed to update user", nil)
+		}
 	} else if errors.Is(err, ErrNotFound) {
 		newUser = true
 		user = &User{
-			UUID:      uuid.New().String(),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Email:     &email,
-			Password:  hashedVerificationCode,
+			UUID:                  uuid.New().String(),
+			CreatedAt:             time.Now(),
+			UpdatedAt:             time.Now(),
+			Email:                 &email,
+			EmailVerificationCode: hashedVerificationCode,
+			EmailVerified:         false,
+		}
+
+		if password != nil {
+			hp, err := bcrypt.GenerateFromPassword([]byte(*password), bcrypt.DefaultCost)
+			if err != nil {
+				return nil, cerrors.New(err, "failed to hash password", nil)
+			}
+			user.Password = hp
 		}
 
 		err = s.queries.InsertUser(ctx, user)
-		if err != nil {
-			return nil, cerrors.New(err, "failed to insert user", nil)
-		}
-	} else if err == nil {
-		user.UpdatedAt = time.Now()
-		user.Password = hashedVerificationCode
-
-		err = s.queries.UpdateUser(ctx, user)
 		if err != nil {
 			return nil, cerrors.New(err, "failed to insert user", nil)
 		}
@@ -134,9 +150,25 @@ func (s *Svc) signupWithEmailOTP(ctx context.Context, email string) (*SessionRes
 		})
 	}
 
+	if password == nil {
+		// If no password is provided, we don't create a session
+		// because the user will login with the verification code
+		return &SessionResult{
+			User:    user,
+			NewUser: newUser,
+		}, nil
+	}
+
+	session, plainSessionToken, err := s.createSession(ctx, user.UUID)
+	if err != nil {
+		return nil, cerrors.New(err, "failed to create session", nil)
+	}
+
 	return &SessionResult{
-		User:    user,
-		NewUser: newUser,
+		User:              user,
+		Session:           session,
+		PlainSessionToken: plainSessionToken,
+		NewUser:           newUser,
 	}, nil
 }
 
@@ -185,7 +217,72 @@ func (s *Svc) Login(ctx context.Context, p LoginParams) (*SessionResult, error) 
 		return s.loginWithEmailPassword(ctx, *p.Email, *p.Password)
 	}
 
+	if p.Email != nil && p.VerificationCode != nil {
+		return s.loginWithEmailVerificationCode(ctx, *p.Email, *p.VerificationCode)
+	}
+
 	return nil, cerrors.New(nil, "invalid login params", nil)
+}
+
+// VerifyEmail verifies the email of a user with the given verification code. If the verification succeeds,
+// it updates the user's email verification status and returns the user.
+func (s *Svc) VerifyEmail(ctx context.Context, p VerifyEmailParams) (*User, error) {
+	user, err := s.queries.GetUserByEmail(ctx, p.Email)
+	if err != nil && errors.Is(err, ErrNotFound) {
+		return nil, ErrInvalidCredentials
+	} else if err != nil {
+		return nil, cerrors.New(err, "failed to get user by email", map[string]interface{}{
+			"email": p.Email,
+		})
+	}
+
+	err = bcrypt.CompareHashAndPassword(user.EmailVerificationCode, []byte(p.VerificationCode))
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	user.EmailVerified = true
+
+	err = s.queries.UpdateUser(ctx, user)
+	if err != nil {
+		return nil, cerrors.New(err, "failed to update user", map[string]interface{}{
+			"userUUID": user.UUID,
+		})
+	}
+
+	return user, nil
+}
+
+func (s *Svc) loginWithEmailVerificationCode(ctx context.Context, email, code string) (*SessionResult, error) {
+	user, err := s.VerifyEmail(ctx, VerifyEmailParams{
+		Email:            email,
+		VerificationCode: code,
+	})
+	if err != nil {
+		return nil, cerrors.New(err, "failed to verify email", map[string]interface{}{
+			"email": email,
+		})
+	}
+
+	if len(user.Password) > 0 {
+		return nil, cerrors.New(nil, "user cannot login with verification code because they have a password", map[string]interface{}{
+			"userUUID": user.UUID,
+		})
+	}
+
+	session, plainSessionToken, err := s.createSession(ctx, user.UUID)
+	if err != nil {
+		return nil, cerrors.New(err, "failed to create session", map[string]interface{}{
+			"userUUID": user.UUID,
+		})
+	}
+
+	return &SessionResult{
+		User:              user,
+		Session:           session,
+		PlainSessionToken: plainSessionToken,
+	}, nil
+
 }
 
 func (s *Svc) loginWithEmailPassword(ctx context.Context, email, password string) (*SessionResult, error) {
@@ -247,7 +344,7 @@ func (s *Svc) loginWithUsernamePassword(ctx context.Context, username, password 
 }
 
 func (s *Svc) createSession(ctx context.Context, userUUID string) (*Session, string, error) {
-	const tokenLen = 128
+	const tokenLen = 72
 
 	plainToken := crandom.GenerateRandomString(tokenLen)
 
