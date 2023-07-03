@@ -1,14 +1,15 @@
 -- +migrate Up
 create table if not exists cauth_users
 (
-    uuid                 text primary key,
-    created_at           datetime not null,
-    updated_at           datetime not null,
-    email                text unique,
-    email_verified       integer  not null default 0,
-    username             text unique,
-    password             blob,
-    password_reset_token blob
+    uuid                    text primary key,
+    created_at              datetime not null,
+    updated_at              datetime not null,
+    email                   text unique,
+    email_verified          integer  not null default 0,
+    email_verification_code blob     not null,
+    username                text unique,
+    password                blob,
+    password_reset_token    blob
 );
 
 create table if not exists cauth_sessions
