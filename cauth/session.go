@@ -25,6 +25,14 @@ func NewVerifySessionMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogge
 	}
 }
 
+func NewSetSessionIfAnyMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogger.Logger) *SetSessionIfAnyMiddleware {
+	return &SetSessionIfAnyMiddleware{
+		auth:   auth,
+		rw:     rw,
+		logger: logger,
+	}
+}
+
 // VerifySessionMiddleware is a middleware that checks for a valid session uuid and token in:
 //  1. The Authorization header using basic auth where the username is the session uuid
 //     and the password is the session token
@@ -40,66 +48,46 @@ type VerifySessionMiddleware struct {
 	logger clogger.Logger
 }
 
+// SetSessionIfAnyMiddleware works the same way as VerifySessionMiddleware, but does not return an
+// error if no session is found. Instead, it just calls the next handler.
+// This is useful in conjunction with the HasVerifiedSession function.
+type SetSessionIfAnyMiddleware struct {
+	auth   *Svc
+	rw     *chttp.ReaderWriter
+	logger clogger.Logger
+}
+
 // Handle implements the middleware for VerifySessionMiddleware.
 func (mw *VerifySessionMiddleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var (
-			sessionUUID string
-			plainToken  string
-		)
-
-		sessionUUIDCookie, err := r.Cookie("SessionUUID")
-		if err != nil && !errors.Is(err, http.ErrNoCookie) {
-			mw.logger.Error("Failed to read session uuid cookie", err)
-			w.WriteHeader(http.StatusInternalServerError)
-
-			return
-		}
-
-		sessionTokenCookie, err := r.Cookie("SessionToken")
-		if err != nil && !errors.Is(err, http.ErrNoCookie) {
-			mw.logger.Error("Failed to read session token cookie", err)
-			w.WriteHeader(http.StatusInternalServerError)
-
-			return
-		}
-
-		if sessionTokenCookie != nil && sessionUUIDCookie != nil {
-			sessionUUID = sessionUUIDCookie.Value
-			plainToken = sessionTokenCookie.Value
-		}
-
-		basicAuthUsername, basicAuthPass, ok := r.BasicAuth()
-		if ok && basicAuthUsername != "" && basicAuthPass != "" {
-			sessionUUID = basicAuthUsername
-			plainToken = basicAuthPass
-		}
-
-		if sessionUUID == "" || plainToken == "" {
+		session, user, err := mw.auth.getSessionAndUserFromHTTPRequest(r.Context(), r)
+		if err != nil && errors.Is(err, ErrInvalidCredentials) {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
 
-		ok, session, err := mw.auth.ValidateSession(r.Context(), sessionUUID, plainToken)
-		if err != nil {
-			mw.logger.WithTags(map[string]interface{}{
-				"sessionUUID": sessionUUID,
-			}).Error("Failed to verify session token", err)
+			return
+		} else if err != nil {
+			mw.logger.Error("Failed to get session and user from http request", err)
 			w.WriteHeader(http.StatusInternalServerError)
 
 			return
 		}
 
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
+		ctxWithUser := context.WithValue(r.Context(), ctxKeyUser, user)
+		ctxWithUserAndSession := context.WithValue(ctxWithUser, ctxKeySession, session)
 
-		user, err := mw.auth.GetUserByUUID(r.Context(), session.UserUUID)
-		if err != nil {
-			mw.logger.WithTags(map[string]interface{}{
-				"userUUID": session.UserUUID,
-			}).Error("Failed to get user by uuid", err)
+		next.ServeHTTP(w, r.WithContext(ctxWithUserAndSession))
+	})
+}
+
+func (mw *SetSessionIfAnyMiddleware) Handle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, user, err := mw.auth.getSessionAndUserFromHTTPRequest(r.Context(), r)
+		if err != nil && errors.Is(err, ErrInvalidCredentials) {
+			next.ServeHTTP(w, r)
+
+			return
+		} else if err != nil {
+			mw.logger.Error("Failed to get session and user from http request", err)
 			w.WriteHeader(http.StatusInternalServerError)
 
 			return

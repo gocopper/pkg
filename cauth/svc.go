@@ -3,6 +3,7 @@ package cauth
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"text/template"
@@ -428,4 +429,63 @@ func (s *Svc) Logout(ctx context.Context, sessionUUID string) error {
 	}
 
 	return nil
+}
+
+// getSessionAndUserFromHTTPRequest gets the session and user from the request. It checks for the session uuid and
+// token in the following places:
+//  1. The Authorization header using basic auth where the username is the session uuid
+//     and the password is the session token
+//  2. SessionUUID and SessionToken cookies
+//
+// If the validation fails, ErrInvalidCredentials is returned.
+func (s *Svc) getSessionAndUserFromHTTPRequest(ctx context.Context, r *http.Request) (*Session, *User, error) {
+	var (
+		sessionUUID string
+		plainToken  string
+	)
+
+	sessionUUIDCookie, err := r.Cookie("SessionUUID")
+	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		return nil, nil, cerrors.New(err, "failed to get session uuid cookie", nil)
+	}
+
+	sessionTokenCookie, err := r.Cookie("SessionToken")
+	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		return nil, nil, cerrors.New(err, "failed to get session token cookie", nil)
+	}
+
+	if sessionTokenCookie != nil && sessionUUIDCookie != nil {
+		sessionUUID = sessionUUIDCookie.Value
+		plainToken = sessionTokenCookie.Value
+	}
+
+	basicAuthUsername, basicAuthPass, ok := r.BasicAuth()
+	if ok && basicAuthUsername != "" && basicAuthPass != "" {
+		sessionUUID = basicAuthUsername
+		plainToken = basicAuthPass
+	}
+
+	if sessionUUID == "" || plainToken == "" {
+		return nil, nil, ErrInvalidCredentials
+	}
+
+	ok, session, err := s.ValidateSession(r.Context(), sessionUUID, plainToken)
+	if err != nil {
+		return nil, nil, cerrors.New(err, "failed to validate session", map[string]interface{}{
+			"sessionUUID": sessionUUID,
+		})
+	}
+
+	if !ok {
+		return nil, nil, ErrInvalidCredentials
+	}
+
+	user, err := s.GetUserByUUID(r.Context(), session.UserUUID)
+	if err != nil {
+		return nil, nil, cerrors.New(err, "failed to get user by uuid", map[string]interface{}{
+			"userUUID": session.UserUUID,
+		})
+	}
+
+	return session, user, nil
 }
