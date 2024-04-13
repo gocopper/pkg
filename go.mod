@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/gocopper/copper v0.7.4-0.20230703211417-4f7120e17ae6
+	github.com/gocopper/copper v0.7.4-0.20240314180422-143442c66ce0
 	github.com/google/uuid v1.3.0
 	github.com/google/wire v0.5.0
 	github.com/mattn/go-sqlite3 v1.14.12
@@ -21,6 +21,7 @@ require (
 	github.com/go-gorp/gorp/v3 v3.0.2 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
+	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
