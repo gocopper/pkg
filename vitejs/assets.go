@@ -46,7 +46,7 @@ func (a *Assets) prod() interface{} {
 				MainJS struct {
 					File string   `json:"file"`
 					CSS  []string `json:"css"`
-				} `json:"src/main.js"`
+				} `json:"src/main.ts"`
 			}
 		)
 
@@ -76,7 +76,7 @@ func (a *Assets) dev(req *http.Request) interface{} {
 		var (
 			reactRefreshURL = a.config.hostURL.ResolveReference(urlMustParse("/@react-refresh")).String()
 			viteClientURL   = a.config.hostURL.ResolveReference(urlMustParse("/@vite/client")).String()
-			mainJSURL       = a.config.hostURL.ResolveReference(urlMustParse("/src/main.js")).String()
+			mainJSURL       = a.config.hostURL.ResolveReference(urlMustParse("/src/main.ts")).String()
 
 			out strings.Builder
 		)
