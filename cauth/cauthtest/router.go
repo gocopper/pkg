@@ -54,7 +54,7 @@ func NewHandler(t *testing.T) http.Handler {
 
 	err = csql.NewMigrator(csql.NewMigratorParams{
 		DB:         db,
-		Migrations: csql.Migrations(cauth.Migrations),
+		Migrations: csql.Migrations(cauth.SQLiteMigrations),
 		Config:     csqlConfig,
 		Logger:     logger,
 	}).Run()
