@@ -21,6 +21,8 @@ func NewAssets(staticDir chttp.StaticDir, config Config) *Assets {
 type Assets struct {
 	staticDir chttp.StaticDir
 	config    Config
+
+	devModeEntryPointURL *string
 }
 
 func (a *Assets) HTMLRenderFunc() chttp.HTMLRenderFunc {
@@ -40,14 +42,17 @@ func (a *Assets) Assets(req *http.Request) interface{} {
 
 func (a *Assets) prod() interface{} {
 	return func() (template.HTML, error) {
+		type ManifestEntry struct {
+			File    string   `json:"file"`
+			IsEntry bool     `json:"isEntry"`
+			Src     string   `json:"src"`
+			CSS     []string `json:"css"`
+		}
+
 		var (
-			out      strings.Builder
-			manifest struct {
-				MainJS struct {
-					File string   `json:"file"`
-					CSS  []string `json:"css"`
-				} `json:"src/main.tsx"`
-			}
+			out strings.Builder
+
+			manifest map[string]*ManifestEntry
 		)
 
 		manifestFile, err := a.staticDir.Open("static/manifest.json")
@@ -60,11 +65,22 @@ func (a *Assets) prod() interface{} {
 			return "", cerrors.New(err, "failed to decode manifest.json", nil)
 		}
 
-		if len(manifest.MainJS.CSS) == 1 {
-			out.WriteString(fmt.Sprintf("<link rel=\"stylesheet\" href=\"/static/%s\" />\n", manifest.MainJS.CSS[0]))
+		var entryPoint *ManifestEntry
+		for _, entry := range manifest {
+			if entry.IsEntry {
+				entryPoint = entry
+				break
+			}
+		}
+		if entryPoint == nil {
+			return "", cerrors.New(nil, "no entry point found in manifest.json", nil)
 		}
 
-		out.WriteString(fmt.Sprintf("<script type=\"module\" src=\"/static/%s\"></script>", manifest.MainJS.File))
+		if len(entryPoint.CSS) == 1 {
+			out.WriteString(fmt.Sprintf("<link rel=\"stylesheet\" href=\"/static/%s\" />\n", entryPoint.CSS[0]))
+		}
+
+		out.WriteString(fmt.Sprintf("<script type=\"module\" src=\"/static/%s\"></script>", entryPoint.File))
 
 		//nolint:gosec
 		return template.HTML(out.String()), nil
@@ -72,11 +88,30 @@ func (a *Assets) prod() interface{} {
 }
 
 func (a *Assets) dev(req *http.Request) interface{} {
+	if a.devModeEntryPointURL == nil {
+		for _, ext := range []string{".js", ".ts", ".jsx", ".tsx"} {
+			var url = a.config.hostURL.ResolveReference(urlMustParse("/src/main" + ext)).String()
+
+			entryPointReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, url, nil)
+			if err != nil {
+				return cerrors.New(err, "failed to create request for entrypoint", nil)
+			}
+
+			resp, err := http.DefaultClient.Do(entryPointReq)
+			if err != nil {
+				return cerrors.New(err, "failed to execute request for entrypoint", nil)
+			}
+
+			if resp.StatusCode == http.StatusOK {
+				a.devModeEntryPointURL = &url
+			}
+		}
+	}
+
 	return func() (template.HTML, error) {
 		var (
 			reactRefreshURL = a.config.hostURL.ResolveReference(urlMustParse("/@react-refresh")).String()
 			viteClientURL   = a.config.hostURL.ResolveReference(urlMustParse("/@vite/client")).String()
-			mainJSURL       = a.config.hostURL.ResolveReference(urlMustParse("/src/main.tsx")).String()
 
 			out strings.Builder
 		)
@@ -133,7 +168,7 @@ func (a *Assets) dev(req *http.Request) interface{} {
 
 		out.WriteString(fmt.Sprintf(`
 <script type="module" src="%s"></script>
-<script type="module" src="%s"></script>`, viteClientURL, mainJSURL))
+<script type="module" src="%s"></script>`, viteClientURL, *a.devModeEntryPointURL))
 
 		// nolint:gosec
 		return template.HTML(out.String()), nil
