@@ -69,7 +69,7 @@ func NewHandler(t *testing.T) http.Handler {
 	assert.NoError(t, err)
 
 	svc, err := cauth.NewSvc(
-		cauth.NewQueries(csql.NewQuerier(db, csqlConfig)),
+		cauth.NewQueries(csql.NewQuerier(db, csqlConfig, logger)),
 		cmailer.NewLogMailer(logger),
 		config,
 	)
