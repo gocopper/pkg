@@ -1,26 +1,25 @@
 -- +migrate Up
-create table if not exists cauth_users
+CREATE TABLE IF NOT EXISTS cauth_users
 (
-    uuid                    text primary key,
-    created_at              datetime not null,
-    updated_at              datetime not null,
-    email                   text unique,
-    email_verified          integer  not null default 0,
-    email_verification_code blob     not null,
-    username                text unique,
-    password                blob,
-    password_reset_token    blob
+    uuid                         TEXT PRIMARY KEY,
+    created_at                   DATETIME NOT NULL,
+    updated_at                   DATETIME NOT NULL,
+    email                        TEXT UNIQUE,
+    email_verified_at            DATETIME,
+    verification_code            TEXT,
+    verification_code_expires_at DATETIME,
+    password                     BLOB
 );
 
-create table if not exists cauth_sessions
+CREATE TABLE IF NOT EXISTS cauth_sessions
 (
-    uuid       text primary key,
-    created_at datetime not null,
-    user_uuid  text     not null,
-    token      blob     not null,
-    expires_at datetime not null
+    uuid       TEXT PRIMARY KEY,
+    created_at DATETIME NOT NULL,
+    user_uuid  TEXT     NOT NULL,
+    token      BLOB     NOT NULL,
+    expires_at DATETIME NOT NULL
 );
 
 -- +migrate Down
-drop table if exists cauth_users;
-drop table if exists cauth_sessions;
+DROP TABLE IF EXISTS cauth_sessions;
+DROP TABLE IF EXISTS cauth_users;

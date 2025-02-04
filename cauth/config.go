@@ -16,7 +16,7 @@ type Config struct {
 // LoadConfig loads the config for cauth module
 func LoadConfig(loader cconfig.Loader) (Config, error) {
 	var config = Config{
-		VerificationCodeLen:       4,
+		VerificationCodeLen:       6,
 		VerificationEmailSubject:  "Your Verification Code",
 		VerificationEmailFrom:     "webmaster@example.com",
 		VerificationEmailBodyHTML: `Your verification code is <b>{{.VerificationCode}}</b>`,

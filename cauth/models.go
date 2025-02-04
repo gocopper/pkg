@@ -11,14 +11,12 @@ type User struct {
 	CreatedAt time.Time `db:"created_at" json:"-"`
 	UpdatedAt time.Time `db:"updated_at" json:"-"`
 
-	Email    *string `db:"email" json:"email,omitempty"`
-	Username *string `db:"username" json:"username,omitempty"`
+	Email    string `db:"email" json:"email"`
+	Password []byte `db:"password" json:"-"`
 
-	Password           []byte `db:"password" json:"-"`
-	PasswordResetToken []byte `db:"password_reset_token" json:"-"`
-
-	EmailVerified         bool   `db:"email_verified" json:"email_verified"`
-	EmailVerificationCode []byte `db:"email_verification_code" json:"-"`
+	EmailVerifiedAt           *time.Time `db:"email_verified_at" json:"-"`
+	VerificationCode          *string    `db:"verification_code" json:"-"`
+	VerificationCodeExpiresAt *time.Time `db:"verification_code_expires_at" json:"-"`
 }
 
 // Session represents a single logged-in session that a user is able create after providing valid

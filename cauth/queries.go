@@ -35,20 +35,6 @@ func (q *Queries) GetUserByUUID(ctx context.Context, uuid string) (*User, error)
 	return &user, nil
 }
 
-// GetUserByUsername queries the users table for a user with the given username.
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*User, error) {
-	const query = `select * from cauth_users where username=?`
-
-	var user User
-
-	err := q.querier.Get(ctx, &user, query, username)
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
-}
-
 // GetUserByEmail queries the users table for a user with the given email.
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	const query = `select * from cauth_users where email=?`
@@ -66,8 +52,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*User, erro
 // InsertUser creates the given user in cauth_users.
 func (q *Queries) InsertUser(ctx context.Context, user *User) error {
 	const query = `
-	INSERT INTO cauth_users (uuid, created_at, updated_at, email, username, password, password_reset_token, email_verified, email_verification_code)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	INSERT INTO cauth_users (uuid, created_at, updated_at, email, password, email_verified_at, verification_code, verification_code_expires_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	RETURNING *`
 
 	var now = time.Now()
@@ -77,26 +63,25 @@ func (q *Queries) InsertUser(ctx context.Context, user *User) error {
 		now,
 		now,
 		user.Email,
-		user.Username,
 		user.Password,
-		user.PasswordResetToken,
-		user.EmailVerified,
-		user.EmailVerificationCode,
+		user.EmailVerifiedAt,
+		user.VerificationCode,
+		user.VerificationCodeExpiresAt,
 	)
 }
 
 // UpdateUser updates the given user in cauth_users.
 func (q *Queries) UpdateUser(ctx context.Context, user *User) error {
 	const query = `
-	UPDATE cauth_users SET updated_at=?, password=?, password_reset_token=?, email_verified=?, email_verification_code=?
+	UPDATE cauth_users SET updated_at=?, password=?, email_verified_at=?, verification_code=?, verification_code_expires_at=?
 	WHERE uuid=?`
 
 	_, err := q.querier.Exec(ctx, query,
 		user.UpdatedAt,
 		user.Password,
-		user.PasswordResetToken,
-		user.EmailVerified,
-		user.EmailVerificationCode,
+		user.EmailVerifiedAt,
+		user.VerificationCode,
+		user.VerificationCodeExpiresAt,
 		user.UUID,
 	)
 	return err
