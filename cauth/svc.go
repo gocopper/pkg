@@ -48,10 +48,11 @@ type Svc struct {
 // SessionResult is usually used when a new session is created. It holds the plain session token that can be used
 // to authenticate the session as well as other related entities such as the user and session.
 type SessionResult struct {
-	User              *User    `json:"user"`
-	Session           *Session `json:"session"`
-	PlainSessionToken string   `json:"plain_session_token"`
-	NewUser           bool     `json:"new_user"`
+	User              *User         `json:"user"`
+	Session           *Session      `json:"session"`
+	PlainSessionToken string        `json:"plain_session_token"`
+	NewUser           bool          `json:"new_user"`
+	HTTPCookies       []http.Cookie `json:"-"`
 }
 
 // SignupParams hold the params needed to signup a new user.
@@ -243,6 +244,7 @@ func (s *Svc) signupWithEmail(ctx context.Context, email string, password *strin
 		Session:           session,
 		PlainSessionToken: plainSessionToken,
 		NewUser:           newUser,
+		HTTPCookies:       getHTTPCookies(session.UUID, plainSessionToken),
 	}, nil
 }
 
@@ -320,6 +322,7 @@ func (s *Svc) loginWithEmailVerificationCode(ctx context.Context, email, code st
 		User:              user,
 		Session:           session,
 		PlainSessionToken: plainSessionToken,
+		HTTPCookies:       getHTTPCookies(session.UUID, plainSessionToken),
 	}, nil
 
 }
@@ -350,6 +353,7 @@ func (s *Svc) loginWithEmailPassword(ctx context.Context, email, password string
 		User:              user,
 		Session:           session,
 		PlainSessionToken: plainSessionToken,
+		HTTPCookies:       getHTTPCookies(session.UUID, plainSessionToken),
 	}, nil
 }
 
