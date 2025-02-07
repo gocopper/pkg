@@ -4,13 +4,13 @@ go 1.18
 
 require (
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/gocopper/copper v0.7.4-0.20240314180422-143442c66ce0
+	github.com/gocopper/copper v0.7.4-0.20250207135953-e08ec20e463d
 	github.com/google/uuid v1.3.0
 	github.com/google/wire v0.5.0
-	github.com/mattn/go-sqlite3 v1.14.12
+	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/prometheus/client_golang v1.19.1
-	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.3.0
+	github.com/stretchr/testify v1.8.2
+	golang.org/x/crypto v0.18.0
 )
 
 require (
@@ -43,5 +43,5 @@ require (
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

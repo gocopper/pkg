@@ -30,9 +30,10 @@ func (ro *Router) Routes() []chttp.Route {
 
 	return []chttp.Route{
 		{
-			Path:    path,
-			Methods: []string{http.MethodGet},
-			Handler: ro.promHandler.ServeHTTP,
+			Path:                 path,
+			Methods:              []string{http.MethodGet},
+			Handler:              ro.promHandler.ServeHTTP,
+			RegisterWithBasePath: true,
 		},
 	}
 }
