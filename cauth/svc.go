@@ -80,6 +80,45 @@ type ResetPasswordParams struct {
 	VerificationCode string `json:"verification_code"`
 }
 
+type UpdatePasswordParams struct {
+	Email           string
+	CurrentPassword string
+	NewPassword     string
+}
+
+func (s *Svc) UpdatePassword(ctx context.Context, p UpdatePasswordParams) error {
+	user, err := s.queries.GetUserByEmail(ctx, p.Email)
+	if err != nil && errors.Is(err, ErrNotFound) {
+		return ErrInvalidCredentials
+	} else if err != nil {
+		return cerrors.New(err, "failed to get user by email", map[string]interface{}{
+			"email": p.Email,
+		})
+	}
+
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(p.CurrentPassword))
+	if err != nil {
+		return ErrInvalidCredentials
+	}
+
+	hp, err := bcrypt.GenerateFromPassword([]byte(p.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return cerrors.New(err, "failed to hash password", nil)
+	}
+
+	user.UpdatedAt = time.Now()
+	user.Password = hp
+
+	err = s.queries.UpdateUser(ctx, user)
+	if err != nil {
+		return cerrors.New(err, "failed to update user", map[string]interface{}{
+			"userUUID": user.UUID,
+		})
+	}
+
+	return nil
+}
+
 func (s *Svc) ResendVerificationCode(ctx context.Context, email string) error {
 	user, err := s.queries.GetUserByEmail(ctx, email)
 	if err != nil && errors.Is(err, ErrNotFound) {
