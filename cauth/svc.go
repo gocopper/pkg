@@ -86,6 +86,55 @@ type UpdatePasswordParams struct {
 	NewPassword     string
 }
 
+func (s *Svc) StopImpersonatingUser(ctx context.Context, sessionID string) error {
+	session, err := s.queries.GetSession(ctx, sessionID)
+	if err != nil {
+		return cerrors.New(err, "failed to get session", map[string]interface{}{
+			"sessionID": sessionID,
+		})
+	}
+
+	session.UpdatedAt = time.Now()
+	session.ImpersonatedUserUUID = nil
+
+	err = s.queries.UpdateSession(ctx, session)
+	if err != nil {
+		return cerrors.New(err, "failed to update session", map[string]interface{}{
+			"sessionID": session.UUID,
+		})
+	}
+
+	return nil
+}
+
+func (s *Svc) ImpersonateUser(ctx context.Context, sessionID, userEmail string) error {
+	session, err := s.queries.GetSession(ctx, sessionID)
+	if err != nil {
+		return cerrors.New(err, "failed to get session", map[string]interface{}{
+			"sessionID": sessionID,
+		})
+	}
+
+	impersonatedUser, err := s.queries.GetUserByEmail(ctx, userEmail)
+	if err != nil {
+		return cerrors.New(err, "failed to get user by email", map[string]interface{}{
+			"email": userEmail,
+		})
+	}
+
+	session.UpdatedAt = time.Now()
+	session.ImpersonatedUserUUID = &impersonatedUser.UUID
+
+	err = s.queries.UpdateSession(ctx, session)
+	if err != nil {
+		return cerrors.New(err, "failed to update session", map[string]interface{}{
+			"sessionID": session.UUID,
+		})
+	}
+
+	return nil
+}
+
 func (s *Svc) UpdatePassword(ctx context.Context, p UpdatePasswordParams) error {
 	user, err := s.queries.GetUserByEmail(ctx, p.Email)
 	if err != nil && errors.Is(err, ErrNotFound) {
@@ -409,6 +458,7 @@ func (s *Svc) createSession(ctx context.Context, userUUID string) (*Session, str
 	session := &Session{
 		UUID:      uuid.New().String(),
 		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 		UserUUID:  userUUID,
 		Token:     hashedToken,
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
@@ -457,6 +507,7 @@ func (s *Svc) Logout(ctx context.Context, sessionUUID string) error {
 	}
 
 	session.ExpiresAt = time.Now()
+	session.UpdatedAt = time.Now()
 
 	err = s.queries.UpdateSession(ctx, session)
 	if err != nil {
@@ -517,10 +568,10 @@ func (s *Svc) getSessionAndUserFromHTTPRequest(_ context.Context, r *http.Reques
 		return nil, nil, ErrInvalidCredentials
 	}
 
-	user, err := s.GetUserByUUID(r.Context(), session.UserUUID)
+	user, err := s.GetUserByUUID(r.Context(), session.CurrentUserID())
 	if err != nil {
 		return nil, nil, cerrors.New(err, "failed to get user by uuid", map[string]interface{}{
-			"userUUID": session.UserUUID,
+			"userUUID": session.CurrentUserID(),
 		})
 	}
 

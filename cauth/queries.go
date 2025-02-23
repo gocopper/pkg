@@ -104,13 +104,14 @@ func (q *Queries) GetSession(ctx context.Context, uuid string) (*Session, error)
 // InsertSession creates a new session in cauth_sessions
 func (q *Queries) InsertSession(ctx context.Context, session *Session) error {
 	const query = `
-	INSERT INTO cauth_sessions (uuid, created_at, user_uuid, token, expires_at)
-	VALUES (?, ?, ?, ?, ?)
+	INSERT INTO cauth_sessions (uuid, created_at, updated_at, user_uuid, token, expires_at)
+	VALUES (?, ?, ?, ?, ?, ?)
 	RETURNING *`
 
 	return q.querier.Get(ctx, session, query,
 		session.UUID,
-		time.Now(),
+		session.CreatedAt,
+		session.UpdatedAt,
 		session.UserUUID,
 		session.Token,
 		session.ExpiresAt,
@@ -120,11 +121,13 @@ func (q *Queries) InsertSession(ctx context.Context, session *Session) error {
 // UpdateSession updates the given session in cauth_sessions.
 func (q *Queries) UpdateSession(ctx context.Context, session *Session) error {
 	const query = `
-	UPDATE cauth_sessions SET expires_at=?
+	UPDATE cauth_sessions SET updated_at=?, expires_at=?, impersonated_user_uuid=?
 	WHERE uuid=?`
 
 	_, err := q.querier.Exec(ctx, query,
+		session.UpdatedAt,
 		session.ExpiresAt,
+		session.ImpersonatedUserUUID,
 		session.UUID,
 	)
 	return err

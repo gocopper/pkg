@@ -13,11 +13,13 @@ create table if not exists cauth_users
 
 create table if not exists cauth_sessions
 (
-    uuid       text primary key,
-    created_at timestamp with time zone not null,
-    user_uuid  text                     not null,
-    token      bytea                    not null,
-    expires_at timestamp with time zone not null
+    uuid                   text primary key,
+    created_at             timestamp with time zone not null,
+    updated_at             timestamp with time zone not null,
+    user_uuid              text                     not null,
+    impersonated_user_uuid text,
+    token                  bytea                    not null,
+    expires_at             timestamp with time zone not null
 );
 
 -- +migrate Down

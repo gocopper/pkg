@@ -13,11 +13,13 @@ CREATE TABLE IF NOT EXISTS cauth_users
 
 CREATE TABLE IF NOT EXISTS cauth_sessions
 (
-    uuid       TEXT PRIMARY KEY,
-    created_at DATETIME NOT NULL,
-    user_uuid  TEXT     NOT NULL,
-    token      BLOB     NOT NULL,
-    expires_at DATETIME NOT NULL
+    uuid                   TEXT PRIMARY KEY,
+    created_at             DATETIME NOT NULL,
+    updated_at             DATETIME NOT NULL,
+    user_uuid              TEXT     NOT NULL,
+    impersonated_user_uuid TEXT,
+    token                  BLOB     NOT NULL,
+    expires_at             DATETIME NOT NULL
 );
 
 -- +migrate Down
