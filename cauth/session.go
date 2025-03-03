@@ -18,7 +18,7 @@ const (
 )
 
 // NewVerifySessionMiddleware instantiates and creates a new VerifySessionMiddleware
-func NewVerifySessionMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogger.Logger) *VerifySessionMiddleware {
+func NewVerifySessionMiddleware(auth *Svc, rw *chttp.HTMLReaderWriter, logger clogger.Logger) *VerifySessionMiddleware {
 	return &VerifySessionMiddleware{
 		auth:   auth,
 		rw:     rw,
@@ -26,7 +26,7 @@ func NewVerifySessionMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogge
 	}
 }
 
-func NewSetSessionIfAnyMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clogger.Logger) *SetSessionIfAnyMiddleware {
+func NewSetSessionIfAnyMiddleware(auth *Svc, rw *chttp.HTMLReaderWriter, logger clogger.Logger) *SetSessionIfAnyMiddleware {
 	return &SetSessionIfAnyMiddleware{
 		auth:   auth,
 		rw:     rw,
@@ -45,7 +45,7 @@ func NewSetSessionIfAnyMiddleware(auth *Svc, rw *chttp.ReaderWriter, logger clog
 // To ensure verified session, use in conjunction with VerifySessionMiddleware.
 type VerifySessionMiddleware struct {
 	auth   *Svc
-	rw     *chttp.ReaderWriter
+	rw     *chttp.HTMLReaderWriter
 	logger clogger.Logger
 }
 
@@ -54,7 +54,7 @@ type VerifySessionMiddleware struct {
 // This is useful in conjunction with the HasVerifiedSession function.
 type SetSessionIfAnyMiddleware struct {
 	auth   *Svc
-	rw     *chttp.ReaderWriter
+	rw     *chttp.HTMLReaderWriter
 	logger clogger.Logger
 }
 

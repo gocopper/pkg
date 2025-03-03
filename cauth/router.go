@@ -13,7 +13,8 @@ import (
 type NewRouterParams struct {
 	Auth      *Svc
 	SessionMW *VerifySessionMiddleware
-	RW        *chttp.ReaderWriter
+	JSON      *chttp.JSONReaderWriter
+	HTML      *chttp.HTMLReaderWriter
 	Logger    clogger.Logger
 }
 
@@ -21,7 +22,8 @@ type NewRouterParams struct {
 func NewRouter(p NewRouterParams) *Router {
 	return &Router{
 		svc:       p.Auth,
-		rw:        p.RW,
+		json:      p.JSON,
+		html:      p.HTML,
 		sessionMW: p.SessionMW,
 		logger:    p.Logger,
 	}
@@ -31,7 +33,8 @@ func NewRouter(p NewRouterParams) *Router {
 type Router struct {
 	svc       *Svc
 	sessionMW chttp.Middleware
-	rw        *chttp.ReaderWriter
+	json      *chttp.JSONReaderWriter
+	html      *chttp.HTMLReaderWriter
 	logger    clogger.Logger
 }
 
@@ -66,13 +69,13 @@ func (ro *Router) Routes() []chttp.Route {
 func (ro *Router) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	var params SignupParams
 
-	if !ro.rw.ReadJSON(w, r, &params) {
+	if !ro.json.ReadJSON(w, r, &params) {
 		return
 	}
 
 	sessionResult, err := ro.svc.Signup(r.Context(), params)
 	if err != nil && errors.Is(err, ErrUserAlreadyExists) {
-		ro.rw.WriteJSON(w, chttp.WriteJSONParams{
+		ro.json.WriteJSON(w, chttp.WriteJSONParams{
 			StatusCode: http.StatusBadRequest,
 			Data:       map[string]string{"error": "user already exists"},
 		})
@@ -83,7 +86,7 @@ func (ro *Router) HandleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ro.rw.WriteJSON(w, chttp.WriteJSONParams{
+	ro.json.WriteJSON(w, chttp.WriteJSONParams{
 		Data: sessionResult,
 	})
 }
@@ -92,16 +95,16 @@ func (ro *Router) HandleSignup(w http.ResponseWriter, r *http.Request) {
 func (ro *Router) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var params VerifyEmailParams
 
-	if !ro.rw.ReadJSON(w, r, &params) {
+	if !ro.json.ReadJSON(w, r, &params) {
 		return
 	}
 
 	_, err := ro.svc.VerifyEmail(r.Context(), params)
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {
-		ro.rw.Unauthorized(w, r)
+		ro.html.Unauthorized(w, r)
 		return
 	} else if err != nil {
-		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to verify email", map[string]interface{}{
+		ro.html.WriteHTMLError(w, r, cerrors.New(err, "failed to verify email", map[string]interface{}{
 			"email": params.Email,
 		}))
 		return
@@ -114,22 +117,22 @@ func (ro *Router) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 func (ro *Router) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var params LoginParams
 
-	if !ro.rw.ReadJSON(w, r, &params) {
+	if !ro.json.ReadJSON(w, r, &params) {
 		return
 	}
 
 	sessionResult, err := ro.svc.Login(r.Context(), params)
 	if err != nil && errors.Is(err, ErrInvalidCredentials) {
-		ro.rw.Unauthorized(w, r)
+		ro.html.Unauthorized(w, r)
 		return
 	} else if err != nil {
-		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to login", map[string]interface{}{
+		ro.html.WriteHTMLError(w, r, cerrors.New(err, "failed to login", map[string]interface{}{
 			"email": params.Email,
 		}))
 		return
 	}
 
-	ro.rw.WriteJSON(w, chttp.WriteJSONParams{
+	ro.json.WriteJSON(w, chttp.WriteJSONParams{
 		Data: sessionResult,
 	})
 }
@@ -143,7 +146,7 @@ func (ro *Router) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	err := ro.svc.Logout(ctx, session.UUID)
 	if err != nil {
-		ro.rw.WriteHTMLError(w, r, cerrors.New(err, "failed to logout", map[string]interface{}{
+		ro.html.WriteHTMLError(w, r, cerrors.New(err, "failed to logout", map[string]interface{}{
 			"session": session.UUID,
 		}))
 		return

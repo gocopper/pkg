@@ -1,12 +1,12 @@
 module github.com/gocopper/pkg
 
-go 1.18
+go 1.22
 
 require (
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/gocopper/copper v0.7.4-0.20250207135953-e08ec20e463d
+	github.com/gocopper/copper v0.7.4-0.20250303214557-7135985b8203
 	github.com/google/uuid v1.3.0
-	github.com/google/wire v0.5.0
+	github.com/google/wire v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.8.2

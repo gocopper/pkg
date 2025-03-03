@@ -38,7 +38,8 @@ func NewHandler(t *testing.T) http.Handler {
 
 	var (
 		logger = clogger.New()
-		rw     = chttptest.NewReaderWriter(t)
+		jsonRW = chttptest.NewJSONReaderWriter(t)
+		htmlRW = chttptest.NewHTMLReaderWriter(t)
 	)
 
 	db, err := sql.Open(dbDialect, dbDSN)
@@ -75,12 +76,13 @@ func NewHandler(t *testing.T) http.Handler {
 	)
 	assert.NoError(t, err)
 
-	verifySessionMW := cauth.NewVerifySessionMiddleware(svc, rw, logger)
+	verifySessionMW := cauth.NewVerifySessionMiddleware(svc, htmlRW, logger)
 	dbTxMW := csql.NewTxMiddleware(db, csqlConfig, logger)
 
 	router := cauth.NewRouter(cauth.NewRouterParams{
 		Auth:      svc,
-		RW:        rw,
+		JSON:      jsonRW,
+		HTML:      htmlRW,
 		SessionMW: verifySessionMW,
 		Logger:    logger,
 	})
