@@ -32,7 +32,7 @@ func (a *Assets) HTMLRenderFunc() chttp.HTMLRenderFunc {
 	}
 }
 
-func (a *Assets) Assets(req *http.Request) interface{} {
+func (a *Assets) Assets(req *http.Request) (interface{}, error) {
 	if a.config.DevMode {
 		return a.dev(req)
 	}
@@ -40,7 +40,7 @@ func (a *Assets) Assets(req *http.Request) interface{} {
 	return a.prod()
 }
 
-func (a *Assets) prod() interface{} {
+func (a *Assets) prod() (interface{}, error) {
 	return func() (template.HTML, error) {
 		type ManifestEntry struct {
 			File    string   `json:"file"`
@@ -84,22 +84,22 @@ func (a *Assets) prod() interface{} {
 
 		//nolint:gosec
 		return template.HTML(out.String()), nil
-	}
+	}, nil
 }
 
-func (a *Assets) dev(req *http.Request) interface{} {
+func (a *Assets) dev(req *http.Request) (interface{}, error) {
 	if a.devModeEntryPointURL == nil {
 		for _, ext := range []string{".js", ".ts", ".jsx", ".tsx"} {
 			var url = a.config.hostURL.ResolveReference(urlMustParse("/src/main" + ext)).String()
 
 			entryPointReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, url, nil)
 			if err != nil {
-				return cerrors.New(err, "failed to create request for entrypoint", nil)
+				return nil, cerrors.New(err, "failed to create request for entrypoint", nil)
 			}
 
 			resp, err := http.DefaultClient.Do(entryPointReq)
 			if err != nil {
-				return cerrors.New(err, "failed to execute request for entrypoint", nil)
+				return nil, cerrors.New(err, "failed to execute request for entrypoint", nil)
 			}
 
 			if resp.StatusCode == http.StatusOK {
@@ -172,5 +172,5 @@ func (a *Assets) dev(req *http.Request) interface{} {
 
 		// nolint:gosec
 		return template.HTML(out.String()), nil
-	}
+	}, nil
 }
