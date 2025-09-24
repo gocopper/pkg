@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/gocopper/copper v0.7.4-0.20250818173221-791553c043ce
+	github.com/gocopper/copper v0.7.4-0.20250924223437-a77d38e3ec8d
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.18

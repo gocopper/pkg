@@ -2,6 +2,7 @@ package cpubsub
 
 import (
 	"context"
+	"github.com/gocopper/copper/clifecycle"
 
 	"github.com/gocopper/copper/clogger"
 )
@@ -10,13 +11,15 @@ import (
 // of payloads to 'local' subscribers i.e. subscribers on the same instance
 // as the publisher.
 type LocalPubSub struct {
+	app           *clifecycle.Lifecycle
 	subscriptions map[string][]Handler
 	logger        clogger.Logger
 }
 
 // NewLocalPubSub creates a new LocalPubSub
-func NewLocalPubSub(logger clogger.Logger) PubSub {
+func NewLocalPubSub(app *clifecycle.Lifecycle, logger clogger.Logger) PubSub {
 	return &LocalPubSub{
+		app:           app,
 		subscriptions: make(map[string][]Handler),
 		logger:        logger,
 	}
@@ -43,14 +46,15 @@ func (l *LocalPubSub) Publish(ctx context.Context, topic string, payload interfa
 	}
 
 	for i := range handlers {
-		go func(i int) {
+		i := i
+		l.app.Go(func(ctx context.Context) {
 			err := handlers[i](ctx, payload)
 			if err != nil {
 				l.logger.WithTags(map[string]interface{}{
 					"topic": topic,
 				}).Error("Failed to run pubsub handler", err)
 			}
-		}(i)
+		})
 	}
 
 	return nil
