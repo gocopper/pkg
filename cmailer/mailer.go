@@ -11,6 +11,7 @@ type Mailer interface {
 type SendParams struct {
 	From    string
 	To      []string
+	ReplyTo *string
 	Subject string
 
 	HTMLBody  *string
