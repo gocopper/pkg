@@ -10,7 +10,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/gocopper/copper/cerrors"
 	"github.com/gocopper/copper/clogger"
-	"github.com/gocopper/pkg/cauth"
+	"github.com/google/uuid"
 
 	"github.com/gocopper/copper/chttp"
 )
@@ -29,6 +29,8 @@ type Renderer struct {
 	sharedPropsByRequestID *sync.Map
 	flashPropsBySessionID  *sync.Map
 }
+
+const inertiaSessionCookieName = "inertia_session"
 
 type NewRendererParams struct {
 	HTMLReaderWriter *chttp.HTMLReaderWriter
@@ -95,16 +97,15 @@ func (r *Renderer) ShareProps(ctx context.Context, props map[string]any) {
 	r.sharedPropsByRequestID.Store(requestID, props)
 }
 
-func (r *Renderer) FlashProps(ctx context.Context, props map[string]any) {
-	if !cauth.HasVerifiedSession(ctx) {
+func (r *Renderer) FlashProps(req *http.Request, props map[string]any) {
+	cookie, err := req.Cookie(inertiaSessionCookieName)
+	if err != nil || cookie.Value == "" {
 		r.logger.Warn("[Inertia] Tried to flash props without a session", nil)
 		return
 	}
 
-	var session = cauth.GetCurrentSession(ctx)
-
 	// consider merging props with existing props (if any)
-	r.flashPropsBySessionID.Store(session.UUID, props)
+	r.flashPropsBySessionID.Store(cookie.Value, props)
 }
 
 func (r *Renderer) ReadForm(w http.ResponseWriter, req *http.Request, form any) bool {
@@ -117,7 +118,7 @@ func (r *Renderer) ReadForm(w http.ResponseWriter, req *http.Request, form any) 
 	ok, err := govalidator.ValidateStruct(form)
 	if !ok || err != nil {
 		r.logger.Warn("[Inertia] Form validation failed", err)
-		r.FlashProps(req.Context(), map[string]any{
+		r.FlashProps(req, map[string]any{
 			"validationError": err.Error(),
 		})
 		return false
@@ -157,14 +158,28 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 		page.Props = make(map[string]any)
 	}
 
-	if cauth.HasVerifiedSession(reqCtx) {
-		session := cauth.GetCurrentSession(reqCtx)
-		if flashProps, ok := r.flashPropsBySessionID.Load(session.UUID); ok {
-			// consider merging with existing flash props
-			page.Props["flash"] = flashProps
+	// Get or create Inertia session cookie
+	var sessionID string
+	cookie, err := req.Cookie(inertiaSessionCookieName)
+	if err == nil && cookie.Value != "" {
+		sessionID = cookie.Value
+	} else {
+		sessionID = uuid.New().String()
+		http.SetCookie(w, &http.Cookie{
+			Name:     inertiaSessionCookieName,
+			Value:    sessionID,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   req.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 
-			r.flashPropsBySessionID.Delete(session.UUID)
-		}
+	if flashProps, ok := r.flashPropsBySessionID.Load(sessionID); ok {
+		// consider merging with existing flash props
+		page.Props["flash"] = flashProps
+
+		r.flashPropsBySessionID.Delete(sessionID)
 	}
 
 	requestID := chttp.GetRequestID(reqCtx)
