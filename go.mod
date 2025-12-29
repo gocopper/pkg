@@ -10,6 +10,7 @@ require (
 	github.com/google/wire v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.18
 	github.com/prometheus/client_golang v1.20.3
+	github.com/redis/go-redis/v9 v9.17.2
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.31.0
 )
@@ -21,6 +22,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-gorp/gorp/v3 v3.0.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect

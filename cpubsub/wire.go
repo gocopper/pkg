@@ -6,3 +6,7 @@ import "github.com/google/wire"
 var WireModuleLocal = wire.NewSet(
 	NewLocalPubSub,
 )
+
+var WireModuleRedis = wire.NewSet(
+	NewRedisPubSub,
+)
