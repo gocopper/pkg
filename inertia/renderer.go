@@ -208,9 +208,9 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 	}
 
 	if p.BasePath != nil {
-		page.URL = strings.TrimPrefix(page.URL, *p.BasePath)
+		page.URL = trimBasePathFromURL(page.URL, *p.BasePath)
 	} else if r.basePath != nil {
-		page.URL = strings.TrimPrefix(page.URL, *r.basePath)
+		page.URL = trimBasePathFromURL(page.URL, *r.basePath)
 	}
 
 	if partialData != "" {
