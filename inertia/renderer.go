@@ -136,6 +136,19 @@ type RenderParams struct {
 	BasePath       *string
 }
 
+// Redirect performs an HTTP redirect with the specified status code, stripping the base path if configured.
+func (r *Renderer) Redirect(w http.ResponseWriter, req *http.Request, url string, statusCode int) {
+	if r.basePath != nil {
+		url = trimBasePathFromURL(url, *r.basePath)
+	}
+	http.Redirect(w, req, url, statusCode)
+}
+
+// Redirect303 performs a See Other redirect (303) for POST-redirect-GET pattern.
+func (r *Renderer) Redirect303(w http.ResponseWriter, req *http.Request, url string) {
+	r.Redirect(w, req, url, http.StatusSeeOther)
+}
+
 func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderParams) {
 	var (
 		reqCtx = req.Context()
