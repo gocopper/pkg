@@ -36,6 +36,9 @@ func (r *RedisPubSub) Subscribe(ctx context.Context, topic string, handler Handl
 
 		for {
 			select {
+			case <-r.app.Shutdown():
+				_ = pubsub.Close()
+				return
 			case <-ctx.Done():
 				_ = pubsub.Close()
 				return
