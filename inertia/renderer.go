@@ -188,10 +188,8 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 		})
 	}
 
-	if flashProps, ok := r.flashPropsBySessionID.Load(sessionID); ok {
-		// consider merging with existing flash props
+	if flashProps, ok := r.flashPropsBySessionID.Load(sessionID); ok && partialData == "" {
 		page.Props["flash"] = flashProps
-
 		r.flashPropsBySessionID.Delete(sessionID)
 	}
 
