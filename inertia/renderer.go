@@ -128,9 +128,10 @@ func (r *Renderer) ReadForm(w http.ResponseWriter, req *http.Request, form any) 
 }
 
 type RenderParams struct {
-	Component  string
-	Props      map[string]any
-	MergeProps []string
+	Component     string
+	Props         map[string]any
+	MergeProps    []string
+	DeferredProps map[string][]string
 
 	LayoutTemplate *string
 	BasePath       *string
@@ -232,6 +233,15 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 
 		for key := range page.Props {
 			if !propsToIncludeSet[key] {
+				delete(page.Props, key)
+			}
+		}
+	} else if len(p.DeferredProps) > 0 {
+		// On initial render, strip deferred props from the response
+		// and include the metadata so the client knows what to fetch.
+		page.DeferredProps = p.DeferredProps
+		for _, keys := range p.DeferredProps {
+			for _, key := range keys {
 				delete(page.Props, key)
 			}
 		}

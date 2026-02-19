@@ -7,11 +7,12 @@ import (
 
 type (
 	Page struct {
-		Component  string         `json:"component"`
-		Props      map[string]any `json:"props"`
-		MergeProps []string       `json:"mergeProps"`
-		URL        string         `json:"url"`
-		Version    string         `json:"version"`
+		Component     string              `json:"component"`
+		Props         map[string]any      `json:"props"`
+		MergeProps    []string            `json:"mergeProps,omitempty"`
+		DeferredProps map[string][]string `json:"deferredProps,omitempty"`
+		URL           string              `json:"url"`
+		Version       string              `json:"version"`
 	}
 
 	SSRRenderResponse struct {
