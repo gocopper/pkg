@@ -10,6 +10,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/gocopper/copper/cerrors"
 	"github.com/gocopper/copper/clogger"
+	"github.com/gocopper/pkg/cvars"
 	"github.com/google/uuid"
 
 	"github.com/gocopper/copper/chttp"
@@ -162,7 +163,7 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 			Component:  p.Component,
 			Props:      p.Props,
 			MergeProps: p.MergeProps,
-			URL:        req.URL.String(),
+			URL:        cvars.Ptr(req.URL.String()),
 			Version:    "2",
 		}
 	)
@@ -219,12 +220,15 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, p RenderPara
 	}
 
 	if p.BasePath != nil {
-		page.URL = trimBasePathFromURL(page.URL, *p.BasePath)
+		page.URL = cvars.Ptr(trimBasePathFromURL(*page.URL, *p.BasePath))
 	} else if r.basePath != nil {
-		page.URL = trimBasePathFromURL(page.URL, *r.basePath)
+		page.URL = cvars.Ptr(trimBasePathFromURL(*page.URL, *r.basePath))
 	}
 
 	if partialData != "" {
+		// Partial reloads happen on the same page, so the URL cannot change.
+		page.URL = nil
+
 		propsToIncludeSet := map[string]bool{}
 		for _, prop := range strings.Split(partialData, ",") {
 			propsToIncludeSet[prop] = true

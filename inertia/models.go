@@ -10,7 +10,7 @@ type (
 		Component  string         `json:"component"`
 		Props      map[string]any `json:"props"`
 		MergeProps []string       `json:"mergeProps"`
-		URL        string         `json:"url"`
+		URL        *string        `json:"url,omitempty"`
 		Version    string         `json:"version"`
 	}
 
